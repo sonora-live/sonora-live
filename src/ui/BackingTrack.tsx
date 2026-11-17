@@ -25,6 +25,7 @@ import { clockOf, MIN_LOOP_S, stepRate } from '../media/backing-core.ts';
 import { trackOpen } from './state.ts';
 import { HeldNote } from './Host.tsx';
 import { Recent } from './Library.tsx';
+import { InTimeHere } from './Nudge.tsx';
 import { VideoControls, ytFormOpen } from './Video.tsx';
 
 const ACCEPT = 'audio/*,.mp3,.wav,.flac,.ogg,.opus,.m4a,.aac,.aif,.aiff';
@@ -275,11 +276,9 @@ export function BackingPlayer() {
                     <option value={m.id}>{m.name}</option>
                   ))}
                 </select>
-                {ref !== self && b.delay.value > 0 && (
-                  <small class="muted">{t('+{ms} ms here', { ms: b.delay.value })}</small>
-                )}
               </label>
             )}
+            {musicians.length > 1 && ref !== self && !refGone && <InTimeHere delay={b.delay.value} refId={ref} />}
             <span class="track-ctl track-vol">
               <span class="lbl">{t('My volume')}</span>
               <input

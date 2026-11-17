@@ -1133,6 +1133,39 @@ test('the Music strip: a shared metronome, started by one, heard and changed by 
   await b.getByTestId('metronome').getByRole('button', { name: 'Faster' }).click();
   await expect.poll(async () => (await metro(a)).bpm).toBe(91);
   expect((await metro(a)).running).toBe(true);
+  // he hears it later than she does, by how long her sound takes; and he can move it by ear, for her
+  const delay = () =>
+    b.evaluate(
+      () => (window as unknown as { sonora: { metronome: { delay: { value: number } } } }).sonora.metronome.delay.value,
+    );
+  const nudge = b.getByTestId('metronome').getByTestId('nudge');
+  await expect(nudge).toContainText('ms here');
+  const before = await delay();
+  expect(before).toBeGreaterThan(0);
+  for (let i = 0; i < 3; i++) await nudge.getByRole('button', { name: 'Later here' }).click();
+  await expect(nudge.getByTestId('nudge-val')).toHaveText('+30');
+  await expect.poll(delay).toBeGreaterThan(before + 15);
+  // kept for her, by name; one tap back to what was worked out
+  expect(await b.evaluate(() => JSON.parse(localStorage.getItem('sonora.settings.v1')!).nudge)).toEqual({ Clara: 30 });
+  await nudge.getByTestId('nudge-val').click();
+  await expect(nudge.getByTestId('nudge-val')).toHaveCount(0);
+  // the one it follows tells where it is, every two seconds: his clicks stay on hers (clocks drift, estimates err)
+  const reports = await b.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const s = (
+          window as unknown as { sonora: { metronome: { onControl(f: string, m: Record<string, unknown>): void } } }
+        ).sonora.metronome;
+        let n = 0;
+        const orig = s.onControl.bind(s);
+        s.onControl = (f, m) => {
+          if (m.t === 'mt-at') n++;
+          orig(f, m);
+        };
+        setTimeout(() => resolve(n), 4500);
+      }),
+  );
+  expect(reports).toBeGreaterThanOrEqual(2);
   // she stops it: for him too
   await a.getByTestId('metro-play').click();
   await expect.poll(async () => (await metro(b)).running).toBe(false);
@@ -1445,6 +1478,122 @@ test('keyboard shortcuts: one key each, out of the way while typing or while the
   await a.locator('body').click({ position: { x: 5, y: 300 } });
   await a.keyboard.press('m');
   expect(await mic()).toBe(true);
+});
+
+test('the computer keyboard keeps playing the piano with a track playing, whatever was clicked last', async ({
+  browser,
+}) => {
+  const a = await person(browser, 'Clara', 'teacher');
+  await enter(a);
+  type H = { sonora: { midi: { fromScreen(m: number[]): void } }; __notes: number[] };
+  // every note the on-screen piano plays
+  await a.evaluate(() => {
+    const w = window as unknown as H;
+    const hub = w.sonora.midi;
+    const play = hub.fromScreen.bind(hub);
+    w.__notes = [];
+    hub.fromScreen = (m: number[]) => {
+      if ((m[0] & 0xf0) === 0x90) w.__notes.push(m[1]);
+      play(m);
+    };
+  });
+  const notes = () => a.evaluate(() => (window as unknown as H).__notes.length);
+  await openTool(a, 'keys');
+  const qwerty = a.getByRole('button', { name: /computer keys/i });
+  if ((await qwerty.getAttribute('class'))?.includes('btn-ghost')) await qwerty.click();
+  await openTool(a, 'track');
+  // a track chosen: the file picker keeps the focus (as in Firefox once its window closes)
+  const file = a.getByTestId('backing-track').locator('input[type=file]');
+  await file.setInputFiles({ name: 'Scales.wav', mimeType: 'audio/wav', buffer: wav(20) });
+  await expect(a.getByTestId('track-play')).toBeEnabled({ timeout: 20_000 });
+  await file.focus();
+  await a.keyboard.press('KeyA');
+  await expect.poll(notes).toBe(1);
+  // playing, and the position moved by hand: the slider has the focus
+  await a.getByTestId('track-play').click();
+  const seek = a.getByRole('slider', { name: 'Position' });
+  await seek.focus();
+  await a.keyboard.press('KeyS');
+  await expect.poll(notes).toBe(2);
+  // a list keeps its value: the letters are notes, not a choice in it
+  await openTool(a, 'metronome');
+  const beats = a.getByRole('combobox', { name: 'Beats in a bar' });
+  const before = await beats.inputValue();
+  await beats.focus();
+  await a.keyboard.press('KeyD');
+  await expect.poll(notes).toBe(3);
+  expect(await beats.inputValue()).toBe(before);
+  // the track played on all along
+  expect(
+    await a.evaluate(
+      () =>
+        (window as unknown as { sonora: { backing: { shared: { value: { playing: boolean } } } } }).sonora.backing
+          .shared.value.playing,
+    ),
+  ).toBe(true);
+  // typing still types
+  if (!(await a.getByPlaceholder('Message').isVisible())) await a.getByTestId('btn-chat').click();
+  await a.getByPlaceholder('Message').press('KeyF');
+  expect(await notes()).toBe(3);
+});
+
+test('the voices, the track and the metronome all play on the same output, the chosen one where the browser can', async ({
+  browser,
+}) => {
+  const a = await person(browser, 'Clara', 'teacher');
+  await enter(a);
+  const b = await person(browser, 'Leo', 'student', await codeOf(a));
+  await enter(b);
+  await connected(a, 1);
+  await expect.poll(() => a.evaluate(() => document.querySelectorAll('audio').length)).toBeGreaterThan(0);
+  type E = { sonora: { engine: { ctx: (AudioContext & { sinkId?: string }) | null; ensure(): AudioContext } } };
+  // where each sound goes: the others' voices (their elements) and the engine (track, metronome, piano)
+  const where = () =>
+    a.evaluate(() => {
+      const e = (window as unknown as E).sonora.engine;
+      e.ensure();
+      return {
+        voices: [...document.querySelectorAll('audio')].map(
+          (x) => (x as HTMLAudioElement & { sinkId?: string }).sinkId ?? '',
+        ),
+        engine: (e.ctx as { sinkId?: unknown } | null)?.sinkId ?? '',
+      };
+    });
+  await a.getByTestId('btn-settings').click();
+  await a.getByRole('dialog').getByRole('tab', { name: 'Sound' }).click();
+  const picker = a.getByRole('combobox', { name: 'Speakers', exact: true });
+  if (test.info().project.name.startsWith('firefox')) {
+    // Firefox cannot move the audio engine: no choice here (it would split the sound), the system's output for all
+    await expect(picker).toHaveCount(0);
+    await expect(a.getByTestId('output-system')).toContainText('System Settings → Sound → Output');
+    // even with an output chosen before (an older version offered it): nothing goes elsewhere
+    await a.evaluate(() => {
+      const k = 'sonora.settings.v1';
+      localStorage.setItem(
+        k,
+        JSON.stringify({ ...JSON.parse(localStorage.getItem(k) ?? '{}'), speakerId: 'elsewhere' }),
+      );
+    });
+    const w = await where();
+    expect(w.voices.every((v) => v === '')).toBe(true);
+    return;
+  }
+  // Chromium: the chosen output, for the voices and the engine together
+  const ids = await picker.locator('option').evaluateAll((o) => o.map((x) => (x as HTMLOptionElement).value));
+  const other = ids.find((x) => x !== 'default' && x !== '')!;
+  expect(other).toBeTruthy();
+  await picker.selectOption(other);
+  await expect.poll(where).toEqual({ voices: (await where()).voices.map(() => other), engine: other });
+  // back to the system's default: both again
+  await picker.selectOption(ids[0]);
+  await expect
+    .poll(async () => {
+      const w = await where();
+      return w.voices.every(
+        (v) => v === w.engine || (v === 'default' && w.engine === '') || (v === '' && w.engine === 'default'),
+      );
+    })
+    .toBe(true);
 });
 
 test('a shared screen carries its sound: heard on the other side, on a channel of its own', async ({ browser }) => {

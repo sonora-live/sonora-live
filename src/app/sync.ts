@@ -2,6 +2,7 @@
 // a message from someone takes to arrive, and how long that person's sound takes to reach this side's ears.
 
 import { engine } from '../media/engine.ts';
+import { settings } from './settings.ts';
 import type { PeerView } from './participants.ts';
 
 /** Half the round trip to someone (ms): the usual guess for a message's one-way time. */
@@ -19,8 +20,24 @@ export function soundDelayFrom(peers: PeerView[], selfId: string, ref: string): 
   if (ref === selfId) return 0;
   const p = peers.find((x) => x.id === ref && x.link === 'connected');
   if (!p?.stats || p.stats.rtt === null) return 0;
-  // their own measured extra (Bluetooth headphones): they hear the track and play along that much later
-  return (
-    (p.remote?.sendMs ?? 20) + (p.remote?.hearExtra ?? 0) + p.stats.rtt / 2 + p.stats.bufferMs + engine.outputLatencyMs
-  );
+  // their own measured extra (their speakers and microphone, Bluetooth headphones): they hear the track and play
+  // along that much later; and what this listener set by ear for them
+  const ms =
+    (p.remote?.sendMs ?? 20) +
+    (p.remote?.hearExtra ?? 0) +
+    p.stats.rtt / 2 +
+    p.stats.bufferMs +
+    engine.outputLatencyMs +
+    nudgeFor(p.info.name);
+  return Math.max(1, ms);
+}
+
+/** the largest change set by ear (ms, either way) */
+export const MAX_NUDGE_MS = 200;
+export const NUDGE_STEP_MS = 10;
+
+/** What this listener set by ear for `name` (ms). */
+export function nudgeFor(name: string | undefined): number {
+  const v = name ? settings.peek().nudge?.[name] : 0;
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(-MAX_NUDGE_MS, Math.min(MAX_NUDGE_MS, v)) : 0;
 }

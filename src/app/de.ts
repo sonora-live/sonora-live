@@ -922,4 +922,14 @@ export const DE: Record<string, string> = {
     'Studioklang: nichts wird bearbeitet, die kürzeste Verzögerung. Am besten mit Kabel: Bluetooth fügt etwas hinzu.',
   'Turned off: this device could not keep up, and the lesson comes first.':
     'Ausgeschaltet: Dieses Gerät kam nicht hinterher, und der Unterricht geht vor.',
+  'This browser plays the lesson on your computer’s sound output, all of it on the same one: to use an audio interface or other headphones, choose it in your system’s sound settings (on a Mac: System Settings → Sound → Output). Chrome and Edge can choose it here.':
+    'Dieser Browser spielt die ganze Stunde über die Tonausgabe des Computers, alles über dieselbe: Um ein Audio-Interface oder andere Kopfhörer zu nutzen, wähle es in den Toneinstellungen des Systems (auf dem Mac: Systemeinstellungen → Ton → Ausgabe). Chrome und Edge können es hier wählen.',
+  'Measuring your speakers’ delay': 'Verzögerung deiner Lautsprecher wird gemessen',
+  'Two short sweeps, once: so the others hear you in time with the track and the metronome.':
+    'Zwei kurze Sweeps, einmalig: damit die anderen dich im Takt mit dem Track und dem Metronom hören.',
+  '{name} still sounds behind the clicks and the track here? Press + to play them later. Ahead? Press −. Kept for {name}.':
+    '{name} klingt hier noch hinter den Klicks und dem Track? Drücke +, um sie später zu spielen. Davor? Drücke −. Für {name} gespeichert.',
+  'Earlier here': 'Hier früher',
+  'Later here': 'Hier später',
+  'Set by ear: back to what was worked out': 'Nach Gehör eingestellt: zurück zum berechneten Wert',
 };

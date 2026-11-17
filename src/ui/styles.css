@@ -4731,3 +4731,49 @@ button.chip-btn:hover {
 .score-group[hidden] {
   display: none;
 }
+
+/* how much later the track or metronome plays here, and a by-ear adjustment (src/ui/Nudge.tsx) */
+.nudge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+.nudge small {
+  margin-right: 4px;
+}
+.nudge-btn,
+.nudge-val {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nudge-val {
+  color: var(--gold);
+  border-color: var(--gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+.nudge-btn:hover:not(:disabled),
+.nudge-val:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.nudge-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .nudge-btn,
+  .nudge-val {
+    min-width: 32px;
+    height: 32px;
+  }
+}

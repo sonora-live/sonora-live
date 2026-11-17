@@ -6,6 +6,7 @@ import { Keyboard as KeyboardIcon, X } from 'lucide-preact';
 import { session } from '../app/session.ts';
 import { settings, updateMidi } from '../app/settings.ts';
 import { isTouch } from '../app/platform.ts';
+import { typesText } from './keys.ts';
 import { lang, t, type Lang } from '../app/i18n.ts';
 
 const LOW = 21;
@@ -79,13 +80,6 @@ function layout(): KeyGeom[] {
   return out;
 }
 
-function typingTarget(t: EventTarget | null): boolean {
-  const el = t as HTMLElement | null;
-  return (
-    !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)
-  );
-}
-
 export function PianoKeys({ onClose }: { onClose: () => void }) {
   const keys = useMemo(layout, []);
   const hub = session.midi;
@@ -123,9 +117,21 @@ export function PianoKeys({ onClose }: { onClose: () => void }) {
     const held = new Map<string, number>();
     let pedal = false;
     const down = (e: KeyboardEvent) => {
-      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey || typingTarget(e.target)) return;
-      if (e.code === 'KeyZ') return setOctave((o) => Math.max(1, o - 1));
-      if (e.code === 'KeyX') return setOctave((o) => Math.min(7, o + 1));
+      if (e.metaKey || e.ctrlKey || e.altKey || typesText(e.target)) return;
+      if (e.repeat) {
+        // held: no new note, and still not a list's letter
+        if (QWERTY[e.code] !== undefined || e.code === 'Space') e.preventDefault();
+        return;
+      }
+      // a list or a slider clicked a moment ago keeps its focus, but not the letters (a list would jump to them)
+      if (e.code === 'KeyZ') {
+        e.preventDefault();
+        return setOctave((o) => Math.max(1, o - 1));
+      }
+      if (e.code === 'KeyX') {
+        e.preventDefault();
+        return setOctave((o) => Math.min(7, o + 1));
+      }
       if (e.code === 'Space') {
         e.preventDefault();
         pedal = true;
@@ -136,11 +142,14 @@ export function PianoKeys({ onClose }: { onClose: () => void }) {
       if (semi === undefined || held.has(e.code)) return;
       const note = 12 * (octaveRef.current + 1) + semi;
       if (note < LOW || note > HIGH) return;
+      e.preventDefault();
       held.set(e.code, note);
       play(note, 92);
     };
     const up = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
+        // a focused button would take the pedal's key-up as a press
+        if (!typesText(e.target)) e.preventDefault();
         pedal = false;
         hub.fromScreen([0xb0, 64, 0]);
         return;

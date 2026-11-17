@@ -39,36 +39,37 @@ export default defineConfig({
       testMatch: NETWORK,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1360, height: 860 } },
     },
-    // the lesson in Firefox, on request (E2E_FIREFOX=1, after `npx playwright install firefox`)
+    // the lesson in Firefox, and over simulated networks, on request (E2E_FIREFOX=1, after `npx playwright install
+    // firefox`)
     ...(process.env.E2E_FIREFOX
-      ? [
-          {
-            name: 'firefox',
-            testIgnore: NETWORK,
-            use: {
-              ...devices['Desktop Firefox'],
-              viewport: { width: 1360, height: 860 },
-              // Firefox does not take Chromium's permissions: its own fake camera and microphone, no prompt
-              permissions: [],
-              // with a display (DISPLAY, e.g. Xvfb), windowed: headless Firefox has no WebGL without a GPU
-              headless: !process.env.DISPLAY,
-              launchOptions: {
-                firefoxUserPrefs: {
-                  'media.navigator.streams.fake': true,
-                  'media.navigator.permission.disabled': true,
-                  'media.autoplay.default': 0,
-                  'media.autoplay.block-webaudio': false,
-                  'permissions.default.microphone': 1,
-                  'permissions.default.camera': 1,
-                  // WebGL without a graphics processor (the background blur's model needs it)
-                  'webgl.force-enabled': true,
-                  'webgl.disabled': false,
-                  'gfx.webrender.software': true,
-                },
+      ? (['firefox', 'firefox-network'] as const).map((name) => ({
+          name,
+          ...(name === 'firefox' ? { testIgnore: NETWORK } : { testMatch: NETWORK }),
+          use: {
+            ...devices['Desktop Firefox'],
+            viewport: { width: 1360, height: 860 },
+            // Firefox does not take Chromium's permissions: its own fake camera and microphone, no prompt
+            permissions: [],
+            // with a display (DISPLAY, e.g. Xvfb), windowed: headless Firefox has no WebGL without a GPU
+            headless: !process.env.DISPLAY,
+            launchOptions: {
+              firefoxUserPrefs: {
+                'media.navigator.streams.fake': true,
+                'media.navigator.permission.disabled': true,
+                'media.autoplay.default': 0,
+                'media.autoplay.block-webaudio': false,
+                'permissions.default.microphone': 1,
+                'permissions.default.camera': 1,
+                // WebGL without a graphics processor (the background blur's model needs it)
+                'webgl.force-enabled': true,
+                'webgl.disabled': false,
+                'gfx.webrender.software': true,
+                // the simulated network's relay is on this machine (server/netsim.ts): Firefox skips loopback
+                'media.peerconnection.ice.loopback': true,
               },
             },
           },
-        ]
+        }))
       : []),
   ],
   webServer: process.env.E2E_URL

@@ -5,7 +5,7 @@ import { test } from '@playwright/test';
 
 export function media(...names: ('camera' | 'microphone')[]): string[] {
   const list = names.length ? names : ['camera', 'microphone'];
-  return test.info().project.name === 'firefox' ? [] : list;
+  return test.info().project.name.startsWith('firefox') ? [] : list;
 }
 
 /**

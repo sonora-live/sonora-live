@@ -34,6 +34,11 @@ export interface Settings {
   blur: boolean;
   /** the sound check's measurements: the delay beyond what the browser reports (ms), per output and microphone */
   calibration: Record<string, number>;
+  /**
+   * Set by ear, per person the track and metronome play in time with (by name): how much later (ms, + or −) they
+   * play here than worked out. For what no measurement sees (an unusual device, a singer who sings ahead).
+   */
+  nudge: Record<string, number>;
   /** the tuner's reference pitch for A4 (Hz) */
   tunerA4: number;
   /** what each sound output is, as the person said (by its name): browsers do not tell headphones from speakers */
@@ -89,6 +94,7 @@ export const DEFAULTS: Settings = {
   outputs: {},
   tunerA4: 440,
   calibration: {},
+  nudge: {},
   metronome: { bpm: 100, beats: 4, sub: 1, accent: true, volume: 0.7, countIn: false },
   record: { quality: '720p', voices: false },
   holdControls: false,

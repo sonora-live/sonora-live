@@ -3,7 +3,7 @@
 // beat at `anchor`, `rate` is beats per second. So the metronome is in time with whoever started it, exactly as the
 // track is, and the others hear it later, in time with that person.
 
-import { localTarget, type Timeline } from './backing-core.ts';
+import { localTarget, timelinePos, type Timeline } from './backing-core.ts';
 
 /** slowest and fastest tempo offered (beats per minute) */
 export const MIN_BPM = 20;
@@ -27,6 +27,8 @@ export interface Click {
   kind: ClickKind;
   /** which beat of the bar (0-based) */
   beat: number;
+  /** which click since beat 0 (counted in subdivisions): the same click keeps its number when the timeline moves */
+  index: number;
 }
 
 export const clampBpm = (bpm: number): number =>
@@ -56,7 +58,7 @@ export function clicksBetween(tl: Timeline, setup: MetronomeSetup, from: number,
     b0 = tl.pos;
   }
   // the first subdivision at or after b0 (with a little tolerance so one exactly on time is kept)
-  let k = Math.ceil(b0 / step - 1e-6);
+  let k = Math.ceil(b0 / step - 1e-6) || 0;
   const out: Click[] = [];
   for (;;) {
     const b = k * step;
@@ -67,7 +69,7 @@ export function clicksBetween(tl: Timeline, setup: MetronomeSetup, from: number,
       const beatIndex = Math.floor(b + 1e-6);
       const inBar = setup.beats > 0 ? ((beatIndex % setup.beats) + setup.beats) % setup.beats : 0;
       const kind: ClickKind = !whole ? 'sub' : inBar === 0 && setup.accent && setup.beats > 1 ? 'bar' : 'beat';
-      out.push({ at, kind, beat: inBar });
+      out.push({ at, kind, beat: inBar, index: k });
     }
     k++;
     if (out.length > 512) break;
@@ -93,4 +95,24 @@ export function tapTempo(taps: number[]): number | null {
 export function nextBarBeat(beat: number, beats: number): number {
   const b = Math.max(1, beats);
   return Math.ceil(beat / b - 1e-6) * b;
+}
+
+/** a report this close to where this side already is: the network's wobble, not a drift (ms) */
+export const FOLLOW_MS = 8;
+
+/**
+ * The one it is in time with says it is at `beat` (its message took `oneWayMs` to arrive): the timeline this side
+ * follows from now, or null when it is already in time. Two devices' clocks drift apart (tens of ms in an hour),
+ * and the first estimate of the network's delay may be off: what was set once at the start must be kept true.
+ */
+export function followReport(
+  tl: Timeline,
+  beat: number,
+  now: number,
+  oneWayMs: number,
+): { pos: number; anchor: number } | null {
+  if (!tl.playing || !Number.isFinite(beat) || now < tl.anchor) return null;
+  const next = { pos: beat, anchor: now - oneWayMs };
+  const offMs = ((timelinePos({ ...tl, ...next }, now) - timelinePos(tl, now)) / tl.rate) * 1000;
+  return Math.abs(offMs) > FOLLOW_MS ? next : null;
 }

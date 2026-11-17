@@ -9,7 +9,14 @@ import { engine } from '../media/engine.ts';
 import { ClickVoice } from '../media/clicks.ts';
 import { ctxTimeAt } from '../media/clock.ts';
 import { timelinePos } from '../media/backing-core.ts';
-import { beatTimeline, clampBpm, clicksBetween, type ClickKind, type MetronomeSetup } from '../media/metronome-core.ts';
+import {
+  beatTimeline,
+  clampBpm,
+  clicksBetween,
+  followReport,
+  type ClickKind,
+  type MetronomeSetup,
+} from '../media/metronome-core.ts';
 import type { BackingHost } from './backing.ts';
 import { settings, update } from './settings.ts';
 import { oneWay, soundDelayFrom } from './sync.ts';
@@ -19,6 +26,8 @@ const LEAD_MS = 200;
 /** clicks are scheduled this far ahead */
 const LOOKAHEAD_MS = 160;
 const TICK_MS = 25;
+/** how often the one it is in time with tells the others where it is */
+const REPORT_MS = 2000;
 
 export interface MetroShared extends MetronomeSetup {
   running: boolean;
@@ -43,6 +52,9 @@ export class Metronome {
   private timer: ReturnType<typeof setInterval> | null = null;
   /** clicks are scheduled up to here (this side's clock) */
   private until = 0;
+  /** the last click scheduled (its number): never scheduled twice when the timeline moves a little */
+  private lastIndex = -Infinity;
+  private lastReport = 0;
   private flashes: ReturnType<typeof setTimeout>[] = [];
 
   constructor(private host: BackingHost) {}
@@ -166,6 +178,7 @@ export class Metronome {
   onControl(from: string, msg: Record<string, unknown>): void {
     const peer = this.host.peers().find((p) => p.id === from);
     if (!peer || peer.info.role === 'observer') return;
+    if (msg.t === 'mt-at') return this.onReport(from, msg);
     const ver = Number(msg.ver);
     const by = typeof msg.by === 'string' ? msg.by : '';
     if (!Number.isFinite(ver) || !by) return;
@@ -188,6 +201,23 @@ export class Metronome {
       ver,
       by,
     });
+  }
+
+  /**
+   * The one it is in time with says where it is: the timeline follows (clocks drift, the first estimate of the
+   * network's delay may be off). The clicks already scheduled stay; the next ones follow the new timeline.
+   */
+  private onReport(from: string, msg: Record<string, unknown>): void {
+    const s = this.shared.peek();
+    if (!s.running || s.ref !== from || Number(msg.ver) !== s.ver) return;
+    const now = performance.now();
+    const next = followReport(
+      beatTimeline(true, s.beat, s.anchor, s.bpm),
+      Number(msg.beat),
+      now,
+      oneWay(this.host.peers(), from),
+    );
+    if (next) this.shared.value = { ...s, beat: next.pos, anchor: next.anchor };
   }
 
   /** Someone joined or connected again: they get where it is. */
@@ -221,6 +251,7 @@ export class Metronome {
       this.voice?.cancel();
       for (const f of this.flashes.splice(0)) clearTimeout(f);
       this.until = 0;
+      this.lastIndex = -Infinity;
     }
     if (next.running && !this.timer) {
       this.timer = setInterval(() => this.tick(), TICK_MS);
@@ -263,6 +294,9 @@ export class Metronome {
     const delay = this.delayNow(s);
     const clicks = clicksBetween(beatTimeline(true, s.beat, s.anchor, s.bpm), s, from, to, delay);
     for (const c of clicks) {
+      // already scheduled (the timeline or the delay moved it a little later)
+      if (c.index <= this.lastIndex) continue;
+      this.lastIndex = c.index;
       voice.play(c.kind, ctxTimeAt(ctx, c.at));
       if (c.kind !== 'sub') {
         this.flashes.push(
@@ -272,6 +306,15 @@ export class Metronome {
     }
     if (this.flashes.length > 64) this.flashes.splice(0, this.flashes.length - 64);
     this.until = to;
+    this.report(s, now);
+  }
+
+  /** The one it is in time with: where it is, to everyone (every few seconds). */
+  private report(s: MetroShared, now: number): void {
+    if (s.ref !== this.host.selfId() || now < s.anchor || now - this.lastReport < REPORT_MS) return;
+    this.lastReport = now;
+    const beat = timelinePos(beatTimeline(true, s.beat, s.anchor, s.bpm), now);
+    this.host.send({ t: 'mt-at', ver: s.ver, beat: Math.round(beat * 1e6) / 1e6 });
   }
 
   /** For tests: the clicks this side will hear between two moments of the shared wall clock (ms since 1970). */

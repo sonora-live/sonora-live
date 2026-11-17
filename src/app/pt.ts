@@ -914,4 +914,14 @@ export const PT: Record<string, string> = {
     'Som de estúdio: nada processado, o menor atraso. Com fio é melhor: o Bluetooth acrescenta um pouco.',
   'Turned off: this device could not keep up, and the lesson comes first.':
     'Desligado: este dispositivo não dava conta, e a aula vem primeiro.',
+  'This browser plays the lesson on your computer’s sound output, all of it on the same one: to use an audio interface or other headphones, choose it in your system’s sound settings (on a Mac: System Settings → Sound → Output). Chrome and Edge can choose it here.':
+    'Este navegador reproduz toda a aula na saída de som do computador, toda na mesma: para usar uma interface de áudio ou outros fones, escolha-a nos ajustes de som do sistema (no Mac: Ajustes do Sistema → Som → Saída). O Chrome e o Edge permitem escolhê-la aqui.',
+  'Measuring your speakers’ delay': 'Medindo o atraso dos seus alto-falantes',
+  'Two short sweeps, once: so the others hear you in time with the track and the metronome.':
+    'Duas varreduras curtas, uma só vez: para que os outros ouçam você no tempo da faixa e do metrônomo.',
+  '{name} still sounds behind the clicks and the track here? Press + to play them later. Ahead? Press −. Kept for {name}.':
+    '{name} ainda soa atrás dos cliques e da faixa aqui? Pressione + para tocá-los mais tarde. Adiantado? Pressione −. Guardado para {name}.',
+  'Earlier here': 'Mais cedo aqui',
+  'Later here': 'Mais tarde aqui',
+  'Set by ear: back to what was worked out': 'Ajustado de ouvido: voltar ao valor calculado',
 };

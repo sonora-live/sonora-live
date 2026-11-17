@@ -3,7 +3,7 @@
 
 import { computed, effect, signal } from '@preact/signals';
 import { AUDIO_QUALITY, VIDEO_QUALITY, type SoundMode } from '../media/constraints.ts';
-import { LocalMedia } from '../media/local.ts';
+import { chosenSpeaker, LocalMedia } from '../media/local.ts';
 import { engine } from '../media/engine.ts';
 import { Meter, resumeMeters } from '../media/meter.ts';
 import { MidiHub } from '../midi/hub.ts';
@@ -953,7 +953,7 @@ export class Session {
     }
     el.srcObject = stream;
     this.routeAudio(id);
-    const sink = settings.peek().speakerId;
+    const sink = chosenSpeaker(settings.peek().speakerId);
     if (sink && 'setSinkId' in el)
       void (el as HTMLAudioElement & { setSinkId(id: string): Promise<void> }).setSinkId(sink).catch(() => {});
     el.play().then(
@@ -1073,6 +1073,40 @@ export class Session {
   }
 
   private startEffects(): void {
+    // on speakers, a round trip never measured for this output and microphone: measured once, by itself, a few
+    // seconds into the lesson (two short sweeps). Whoever the others play in time with must be measured: what the
+    // browser reports misses much of it on some devices (Safari reports little of its output's and microphone's
+    // delay, which a laptop's echo cancelling can make several times longer than assumed)
+    const tried = new Set<string>();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    this.disposers.push(
+      effect(() => {
+        const ready =
+          this.phase.value === 'room' &&
+          engine.running.value &&
+          this.listening.value === 'speakers' &&
+          !!this.media.audio.value &&
+          this.media.micOn.value &&
+          this.self.value.role !== 'observer' &&
+          // never over music: the sweeps would be heard over it (and disturb the track's echo canceller)
+          !this.backing.sounding.value &&
+          !this.metronome.shared.value.running &&
+          !this.video.shared.value?.playing;
+        void settings.value.calibration;
+        void this.media.outputLabel.value;
+        if (pending) clearTimeout(pending);
+        pending = null;
+        if (!ready) return;
+        const key = this.deviceKey();
+        if (key in settings.peek().calibration || tried.has(key)) return;
+        pending = setTimeout(() => {
+          pending = null;
+          tried.add(key);
+          void this.measureSpeakers();
+        }, 4000);
+      }),
+    );
+    this.disposers.push(() => pending && clearTimeout(pending));
     // tell the others whenever something they show changes
     this.disposers.push(
       effect(() => {
@@ -1180,9 +1214,19 @@ export class Session {
     this.disposers.push(effect(() => void this.media.setEcho(this.pureEcho.value)));
     // the chosen output for everything: the others' sound (its elements), and the engine (the built-in piano,
     // chimes, the others' sound when it goes through the engine), from the start, not only once changed
+    // (where the browser can move all of it: src/media/local.ts canPickSpeaker), and again once the microphone is
+    // open or the devices change (an output may be refused until then, or plugged in during the lesson)
+    const speakerId = computed(() => chosenSpeaker(settings.value.speakerId));
+    const hasMic = computed(() => !!this.media.audio.value);
+    const devices = signal(0);
+    const changed = () => devices.value++;
+    navigator.mediaDevices?.addEventListener?.('devicechange', changed);
+    this.disposers.push(() => navigator.mediaDevices?.removeEventListener?.('devicechange', changed));
     this.disposers.push(
       effect(() => {
-        const id = settings.value.speakerId;
+        const id = speakerId.value;
+        void hasMic.value;
+        void devices.value;
         void this.media.setSpeaker(id);
         void engine.setSink(id);
       }),
@@ -1370,6 +1414,7 @@ export class Session {
         this.backing.onControl(id, msg);
         break;
       case 'mt':
+      case 'mt-at':
         this.metronome.onControl(id, msg);
         break;
       case 'rec':
@@ -1488,7 +1533,24 @@ export class Session {
    * remembered for this output and microphone, and told to the others: what they play in time with this side
    * waits for it.
    */
-  async soundCheck(mode: 'detect' | 'headphones'): Promise<CheckResult & { extraMs: number | null }> {
+  async soundCheck(mode: 'detect' | 'headphones' | 'measure'): Promise<CheckResult & { extraMs: number | null }> {
+    // one at a time (the one started by itself waits for nobody: it is skipped when another runs)
+    while (this.checking) {
+      if (mode === 'measure') throw new Error('a sound check is running');
+      await this.checking.catch(() => {});
+    }
+    const run = this.runCheck(mode);
+    this.checking = run;
+    try {
+      return await run;
+    } finally {
+      if (this.checking === run) this.checking = null;
+    }
+  }
+
+  private checking: Promise<unknown> | null = null;
+
+  private async runCheck(mode: 'detect' | 'headphones' | 'measure'): Promise<CheckResult & { extraMs: number | null }> {
     const ctx = engine.ensure();
     if (!ctx || !engine.out) throw new Error('no audio');
     const micId = this.media.audio.peek()?.getSettings().deviceId || settings.peek().micId || undefined;
@@ -1501,8 +1563,23 @@ export class Session {
       update({ calibration: { ...settings.peek().calibration, [this.deviceKey()]: extraMs } });
     }
     if (mode === 'detect') this.setListening(r.heard ? 'speakers' : 'headphones');
-    else if (r.heard) this.setListening('headphones');
+    else if (mode === 'headphones' && r.heard) this.setListening('headphones');
+    // `measure` (on speakers, by itself): the delay only; not heard (the volume down) changes nothing
     return { ...r, extraMs };
+  }
+
+  /** The speakers' round trip, measured by itself (see startEffects): told quietly, kept for this output. */
+  private async measureSpeakers(): Promise<void> {
+    toast({
+      kind: 'info',
+      title: t('Measuring your speakers’ delay'),
+      body: t('Two short sweeps, once: so the others hear you in time with the track and the metronome.'),
+    });
+    try {
+      await this.soundCheck('measure');
+    } catch {
+      // no microphone for it now: asked again next time
+    }
   }
 
   /** Tell everyone who this browser is connected to. */

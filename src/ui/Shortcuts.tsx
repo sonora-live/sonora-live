@@ -10,12 +10,8 @@ import { t } from '../app/i18n.ts';
 import { Sheet } from './common.tsx';
 import { chatOpen, menu, sheet } from './state.ts';
 import { shown, toggleMusic } from './Music.tsx';
+import { typesText, usesArrows } from './keys.ts';
 import { scoreShown, tool } from './Score.tsx';
-
-const typing = (el: EventTarget | null): boolean => {
-  const e = el as HTMLElement | null;
-  return !!e && (e.tagName === 'INPUT' || e.tagName === 'TEXTAREA' || e.tagName === 'SELECT' || e.isContentEditable);
-};
 
 /** the computer keyboard plays the on-screen piano: its letters are notes */
 const keysPlay = () => shown.peek().keys && settings.peek().midi.qwerty;
@@ -62,7 +58,7 @@ const LIST: { group: () => string; items: Shortcut[] }[] = [
 
 /** What a key does in the lesson (true: it was a shortcut). */
 export function handleKey(e: KeyboardEvent): boolean {
-  if (e.defaultPrevented || typing(e.target) || e.altKey) return false;
+  if (e.defaultPrevented || typesText(e.target) || e.altKey) return false;
   // a sheet open: Escape is its own; the rest waits
   if (sheet.peek()) return false;
   const score = scoreShown.peek();
@@ -79,7 +75,7 @@ export function handleKey(e: KeyboardEvent): boolean {
     sheet.value = 'shortcuts';
     return true;
   }
-  if (score && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+  if (score && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !usesArrows(e.target)) {
     session.score.setPage((session.score.shared.peek()?.page ?? 0) + (e.key === 'ArrowLeft' ? -1 : 1));
     return true;
   }

@@ -679,8 +679,23 @@ export async function listDevices(): Promise<DeviceLists> {
   }
 }
 
-/** Can audio elements be sent to another output device (Chromium, Firefox)? */
-export const canPickSpeaker = typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype;
+/**
+ * Can everything this page plays be sent to another output device: the others' voices (audio elements) and the
+ * audio engine (the backing track, the metronome, the piano) alike? Chromium only: Firefox and Safari can move
+ * an audio element but not an audio context, and a choice there would split the sound between two devices (the
+ * voices on the chosen one, the track and clicks on the system's). Played through an element of its own instead,
+ * the engine's sound reaches the other device late, by a delay the browser does not report and that grows with
+ * time (measured in Firefox): the track and clicks would no longer be in time with the voices. There, everything
+ * plays on the system's output, chosen in the system's sound settings.
+ */
+export const canPickSpeaker =
+  typeof HTMLMediaElement !== 'undefined' &&
+  'setSinkId' in HTMLMediaElement.prototype &&
+  typeof AudioContext !== 'undefined' &&
+  'setSinkId' in AudioContext.prototype;
+
+/** The output chosen in the app, where it can be ('' = the system's). */
+export const chosenSpeaker = (id: string): string => (canPickSpeaker ? id : '');
 
 /**
  * Names that say the output is headphones. Strict: a speaker taken for headphones would turn echo cancelling

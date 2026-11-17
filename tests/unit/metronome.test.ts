@@ -3,10 +3,12 @@ import {
   beatTimeline,
   clampBpm,
   clicksBetween,
+  followReport,
   nextBarBeat,
   tapTempo,
   type MetronomeSetup,
 } from '../../src/media/metronome-core.ts';
+import { timelinePos } from '../../src/media/backing-core.ts';
 
 const setup = (o: Partial<MetronomeSetup> = {}): MetronomeSetup => ({ bpm: 120, beats: 4, sub: 1, accent: true, ...o });
 
@@ -82,5 +84,39 @@ describe('tempo', () => {
     expect(nextBarBeat(5.2, 4)).toBe(8);
     expect(nextBarBeat(8, 4)).toBe(8);
     expect(nextBarBeat(0.1, 3)).toBe(3);
+  });
+});
+
+describe('the metronome follows the one it is in time with', () => {
+  // 120 bpm: 2 beats a second, started at 1000 ms at beat 0
+  const tl = beatTimeline(true, 0, 1000, 120);
+
+  it('stays as it is when a report agrees, give or take the network’s wobble', () => {
+    // the report sent at 5000 ms (arriving 40 ms later) says beat 8: where this side's timeline was then
+    expect(followReport(tl, 8, 5040, 40)).toBeNull();
+    // 5 ms off: still in time
+    expect(followReport(tl, 8.01, 5040, 40)).toBeNull();
+  });
+
+  it('moves to where the report says once the clocks drifted apart', () => {
+    // 30 ms apart (0.06 beat): followed
+    const next = followReport(tl, 8.06, 5040, 40);
+    expect(next).not.toBeNull();
+    const after = beatTimeline(true, next!.pos, next!.anchor, 120);
+    expect(timelinePos(after, 5040)).toBeCloseTo(8.06 + 0.08, 6);
+    expect(timelinePos(after, 6040)).toBeCloseTo(10.14, 6);
+  });
+
+  it('ignores a report while stopped or before the start', () => {
+    expect(followReport(beatTimeline(false, 0, 1000, 120), 3, 5000, 20)).toBeNull();
+    expect(followReport(tl, 3, 500, 20)).toBeNull();
+  });
+
+  it('numbers each click, the same number whatever the timeline’s anchor', () => {
+    const a = clicksBetween(tl, setup(), 1000, 3000, 0);
+    expect(a.map((c) => c.index)).toEqual([0, 1, 2, 3]);
+    // the same timeline, anchored later at the beat it is at then: same clicks, same numbers
+    const moved = beatTimeline(true, 2, 2000, 120);
+    expect(clicksBetween(moved, setup(), 2000, 3000, 0).map((c) => c.index)).toEqual([2, 3]);
   });
 });

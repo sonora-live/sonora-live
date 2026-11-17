@@ -29,6 +29,7 @@ import { ScorePicker, scoreHidden, scoreShown } from './Score.tsx';
 /** the score panel (to open one) is out */
 const scorePickOpen = signal(false);
 import { noteName, PianoKeys } from './Keyboard.tsx';
+import { InTimeHere } from './Nudge.tsx';
 import { keyboardOpen, metroOpen, musicOpen, trackOpen, tunerOpen } from './state.ts';
 
 /** an instrument or someone's notes are in play (true from the first note: not one change per note) */
@@ -348,10 +349,10 @@ function MetronomePanel() {
                 <option value={x.id}>{x.name}</option>
               ))}
             </select>
-            {s.running && ref !== self && m.delay.value > 0 && (
-              <small class="muted">{t('+{ms} ms here', { ms: m.delay.value })}</small>
-            )}
           </label>
+        )}
+        {musicians.length > 1 && s.running && ref !== self && !refGone && (
+          <InTimeHere delay={m.delay.value} refId={ref} />
         )}
         <span class="tool-ctl tool-vol">
           <span class="lbl">{t('My volume')}</span>

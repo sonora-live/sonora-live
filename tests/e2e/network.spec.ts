@@ -467,7 +467,13 @@ test('the sound check tells speakers from headphones, and measures Bluetooth hea
   await expect(check).toContainText(/Headphones: \d+ ms more than the browser says/, { timeout: 10_000 });
   const extra = Number(/(\d+) ms more/.exec((await check.textContent()) ?? '')?.[1]);
   console.log(`headphones measured: ${extra} ms more than the browser says (200 ms simulated)`);
-  expect(extra).toBeGreaterThan(150);
+  // what the browser says of its output (Firefox: some 40 ms) and 10 ms for the microphone are taken off, though
+  // this simulated earcup is inside the page and goes through neither
+  const said = await a.evaluate(
+    () => (window as unknown as { sonora: { engine: { outputLatencyMs: number } } }).sonora.engine.outputLatencyMs,
+  );
+  expect(extra).toBeGreaterThan(170 - said);
+  expect(extra).toBeLessThan(215);
   expect(await listening()).toBe('headphones');
   // he learns it: what he plays in time with her waits for it
   await expect
@@ -478,7 +484,7 @@ test('the sound check tells speakers from headphones, and measures Bluetooth hea
             .peers.value[0].remote?.hearExtra ?? 0,
       ),
     )
-    .toBeGreaterThan(150);
+    .toBe(extra);
   // speakers: the room brings them back 40 ms later
   await path(40);
   await check.getByTestId('check-run').click();

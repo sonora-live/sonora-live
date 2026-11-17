@@ -100,6 +100,15 @@ sounds on the teacher's piano, and what the teacher plays sounds on the student'
   long that person's sound takes to reach them, so voice and track arrive together (measured within 25 ms at 200 ms
   each way, see below). On speakers, the track is always taken out of the microphone (a canceller that knows exactly
   what the track plays), whichever echo cancelling is chosen.
+- **Kept in time for the whole lesson**: whoever the track and the metronome follow tells everyone where they are
+  every two seconds, so two computers' clocks drifting apart (tens of milliseconds an hour) never add up. On
+  speakers, the delay of your speakers and microphone is measured once by itself (two short sweeps) and remembered
+  for that output: browsers report only part of it (Safari little). Still hear someone a little ahead of the clicks or
+  behind them? Move them by ear with **− / +** next to *+N ms here*; it is kept for that person.
+- **One output for everything**: the voices, the track, the metronome and the piano always play on the same device.
+  Chrome and Edge let you choose it in *Settings → Sound*; Firefox and Safari play everything on the system's
+  output (choose an audio interface in the system's sound settings), since they cannot move the app's own sound
+  to another device.
 - **YouTube together**: paste a link in the Track panel and everyone watches it in time, on the same shared timeline
   as a backing track: Play, seeking and speed are shared, and each side plays it as late as the sound of whoever
   pressed Play reaches it (measured: within 5 ms of that delay).
@@ -292,8 +301,8 @@ Measured by the browser tests over the network simulator (the numbers each run p
 
 | Situation | Result |
 | --- | --- |
-| Backing track, 200 ms each way, the student sings along | his voice and the track reach the teacher together, within 25 ms |
-| Shared metronome, 200 ms each way | his playing lands on her clicks within 2 ms |
+| Backing track, 200 ms each way, the student sings along | his voice and the track reach the teacher together, within 25 ms (Chrome and Firefox) |
+| Shared metronome, 200 ms each way | his playing lands on her clicks within 20 ms (Chrome and Firefox) |
 | MIDI under 0 to 30 ms of jitter | the rhythm as heard stays within 3 ms |
 | MIDI with 3 % loss and jitter | no note lost, none left hanging |
 | A 700 kbit/s link each way | his sound keeps its 190 kbit/s, 0.4 % concealed; his picture adapts (about 300 kbit/s) |
@@ -378,6 +387,7 @@ instead, and `?debug` to see the connection log in the console.
 | `npm run e2e` | Browser tests, both projects below. `-- --project chromium`: real WebRTC between Chromium instances (meet, stereo Opus in 10 ms frames, chat, MIDI to the other side's instrument without echo, lock and knock, reload, simultaneous join, auto voice mode, leave, recording and its recovery, the score with ink saved as PDF, the host's controls, a phone as a camera, a screen's sound, background blur, YouTube in time, shortcuts, six languages) |
 | `npm run e2e -- --project network` | Over simulated networks (`server/netsim.ts`, its own CI job): delay, jitter, loss and capacity. A long-distance link (up to 200 ms each way, jitter): backing track, metronome and MIDI in time with the other side's sound, measured by ear, and the track's echo removed on speakers; a narrow link: the sound kept whole while the picture gives way |
 | | Also MIDI and the microphone without a track over bad networks: rhythm under jitter, 3% loss, an uneven link, the other side's sound coming back from speakers, the delay shown against the real one as the network worsens |
+| `npx playwright install firefox` then `E2E_FIREFOX=1 npm run e2e -- --project firefox --project firefox-network` | The same browser tests in Firefox (on Linux: a sound server such as PulseAudio, and a display such as Xvfb for the background blur's WebGL) |
 | `npm run netsim` | The network simulator on its own, to try the app by hand over a slow link (see `server/netsim.ts`) |
 | `npm run build` | Production build in `dist/` (installable web app with offline support) |
 | `npm run preview` then `E2E_URL=http://localhost:4173/ npm run e2e` | The browser tests against the production build |

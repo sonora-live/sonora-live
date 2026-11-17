@@ -314,7 +314,7 @@ function AudioTab({ devices }: { devices: DeviceLists }) {
         )}
       </div>
 
-      {canPickSpeaker && devices.speakers.length > 0 && (
+      {canPickSpeaker && devices.speakers.length > 0 ? (
         <div class="section">
           <h3>{t('Speakers or headphones')}</h3>
           <div style="display:flex;gap:8px">
@@ -342,6 +342,15 @@ function AudioTab({ devices }: { devices: DeviceLists }) {
               <Volume2 /> {t('Test')}
             </button>
           </div>
+        </div>
+      ) : (
+        <div class="section" data-testid="output-system">
+          <h3>{t('Speakers or headphones')}</h3>
+          <p class="hint">
+            {t(
+              'This browser plays the lesson on your computer’s sound output, all of it on the same one: to use an audio interface or other headphones, choose it in your system’s sound settings (on a Mac: System Settings → Sound → Output). Chrome and Edge can choose it here.',
+            )}
+          </p>
         </div>
       )}
 
