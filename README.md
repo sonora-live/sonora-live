@@ -411,25 +411,14 @@ the network first, and each build writes its id into `index.html` and `version.j
 
 ### Strict networks: add a TURN relay
 
-Most connections are direct: the relay is never used then. A few networks (some company or school firewalls, some
-mobile carriers) block every direct path; a TURN relay gets through them, and then **carries the whole lesson**
-(about 2 GB an hour at the default quality, both ways together), so its allowance matters.
+Most connections are direct. A few networks (some company or school firewalls, some mobile carriers) block every
+direct path; a TURN relay gets through them. Get one (for example a free [Metered](https://www.metered.ca/stun-turn)
+account, or your own [coturn](https://github.com/coturn/coturn) server) and either:
 
-The published site uses [Cloudflare Realtime TURN](https://developers.cloudflare.com/realtime/turn/) (1,000 GB a
-month free, then $0.05/GB, per Cloudflare's pricing page) through a small Worker of its own,
-[`cloudflare/turn.ts`](cloudflare/turn.ts): it keeps the TURN key secret and gives each lesson page short-lived
-credentials, only when asked from the site itself. To set it up once:
-
-1. In the Cloudflare dashboard, under **Realtime** (TURN), create a TURN key; note its key ID and API token.
-2. From the `cloudflare` folder: `npx wrangler deploy`, then `npx wrangler secret put TURN_KEY_ID` and
-   `npx wrangler secret put TURN_KEY_API_TOKEN` (pasted when asked: they stay in Cloudflare, never in the
-   repository). Allowed sites and the credentials' lifetime are in [`cloudflare/wrangler.toml`](cloudflare/wrangler.toml).
-3. In this repository's **Settings → Secrets and variables → Actions → Variables**, set `TURN_API` to the Worker's
-   address (`https://sonora-turn.<your-subdomain>.workers.dev`); the deploy workflow passes it to the build.
-
-Any other relay works too: repository variables `TURN_URLS` (comma separated) and `TURN_USERNAME` with the secret
-`TURN_CREDENTIAL` (fixed credentials end up in the page, readable by anyone: prefer a credentials endpoint), or, as
-a user, one entered in **Settings → Connection** in the app (kept in your browser only).
+- set repository **variables** `TURN_URLS` (comma separated, e.g. `turn:a.relay.example:80,turns:a.relay.example:443`)
+  and `TURN_USERNAME`, and the **secret** `TURN_CREDENTIAL`; or `TURN_API`, a URL that answers with a JSON list of
+  ICE servers (Metered's credentials endpoint does); the Pages workflow passes them to the build;
+- or, as a user, enter one in **Settings → Connection** in the app (kept in your browser only).
 
 ### Project layout
 
@@ -441,7 +430,6 @@ a user, one entered in **Settings → Connection** in the app (kept in your brow
 | [`src/app`](src/app) | The session (everything above, wired together), chat, settings, notifications, installation, languages (`i18n.ts`, `fr.ts`) |
 | [`src/ui`](src/ui) | The interface (Preact + signals): lobby, room, chat, keys, MIDI and settings sheets |
 | [`server/relay.ts`](server/relay.ts) | The local relay of the development server |
-| [`cloudflare/turn.ts`](cloudflare/turn.ts) | The Cloudflare Worker that hands out short-lived TURN credentials (its key kept as Worker secrets) |
 | [`server/netsim.ts`](server/netsim.ts) | A network simulator for tests: a TURN relay that delays, jitters and drops each browser's packets |
 | [`public/piano`](public/piano) | The built-in piano's samples |
 | [`tests`](tests) | Unit tests (Vitest) and browser tests (Playwright) |

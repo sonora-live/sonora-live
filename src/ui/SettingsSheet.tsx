@@ -632,7 +632,7 @@ function ConnectionTab() {
                   'Most connections are direct. A few networks (some offices, schools, mobile carriers) block that; a TURN relay gets through. This site already has one configured; you can add your own.',
                 )
               : t(
-                  'Most connections are direct. A few networks (some offices, schools, mobile carriers) block that; a TURN relay gets through. You can use your own, for example Cloudflare’s TURN service or your own coturn server.',
+                  'Most connections are direct. A few networks (some offices, schools, mobile carriers) block that; a TURN relay gets through. You can use your own, for example a free Metered account or your own coturn server.',
                 )}
           </p>
           <input

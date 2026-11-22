@@ -496,8 +496,8 @@ export const DE: Record<string, string> = {
   'Strict network? Add a TURN relay': 'Strenges Netzwerk? TURN-Relay hinzufügen',
   'Most connections are direct. A few networks (some offices, schools, mobile carriers) block that; a TURN relay gets through. This site already has one configured; you can add your own.':
     'Die meisten Verbindungen sind direkt. Manche Netzwerke (einige Büros, Schulen, Mobilfunkanbieter) blockieren das; ein TURN-Relay kommt durch. Diese Seite hat schon eins eingerichtet; du kannst dein eigenes hinzufügen.',
-  'Most connections are direct. A few networks (some offices, schools, mobile carriers) block that; a TURN relay gets through. You can use your own, for example Cloudflare’s TURN service or your own coturn server.':
-    'Die meisten Verbindungen sind direkt. Manche Netzwerke (einige Büros, Schulen, Mobilfunkanbieter) blockieren das; ein TURN-Relay kommt durch. Du kannst dein eigenes nutzen, zum Beispiel den TURN-Dienst von Cloudflare oder deinen eigenen coturn-Server.',
+  'Most connections are direct. A few networks (some offices, schools, mobile carriers) block that; a TURN relay gets through. You can use your own, for example a free Metered account or your own coturn server.':
+    'Die meisten Verbindungen sind direkt. Manche Netzwerke (einige Büros, Schulen, Mobilfunkanbieter) blockieren das; ein TURN-Relay kommt durch. Du kannst dein eigenes nutzen, zum Beispiel ein kostenloses Metered-Konto oder deinen eigenen coturn-Server.',
   Username: 'Benutzername',
   'TURN username': 'TURN-Benutzername',
   Credential: 'Passwort',

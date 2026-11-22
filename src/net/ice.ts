@@ -1,13 +1,11 @@
 // ICE servers. Public STUN servers let two browsers find a direct path through their routers, which works for
 // the vast majority of home, school and mobile networks. A few networks (strict company firewalls, some
-// carrier-grade NATs) block every direct path; a TURN relay gets through those, and then carries the whole lesson.
-// It can be configured at build time (repository variables, see README) or by the user in Settings → Connection.
+// carrier-grade NATs) block every direct path; a TURN relay gets through those. It can be configured at build
+// time (repository variables, see README) or by the user in Settings → Connection.
 //
-//   VITE_TURN_API         URL answering with ICE servers: { iceServers: [...] } or a bare array. The published site
-//                         uses Cloudflare Realtime TURN through a small Worker of its own (cloudflare/turn.ts),
-//                         which keeps the TURN key secret and hands out short-lived credentials
-//   VITE_TURN_URLS        or fixed servers: comma separated, e.g. "turn:relay.example.com:3478,turns:relay.example.com:443"
+//   VITE_TURN_URLS        comma separated, e.g. "turn:global.relay.metered.ca:80,turns:global.relay.metered.ca:443"
 //   VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL
+//   VITE_TURN_API         URL answering with a JSON array of RTCIceServer (e.g. Metered's credentials API)
 
 export interface TurnConfig {
   urls: string;
@@ -25,16 +23,12 @@ async function fromApi(url: string): Promise<RTCIceServer[]> {
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 2500);
-    const r = await fetch(url, { signal: ctrl.signal, cache: 'no-store', credentials: 'omit' });
+    const r = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
     clearTimeout(timer);
     const j = await r.json();
     const list = (Array.isArray(j) ? j : j?.iceServers) as RTCIceServer[] | undefined;
     if (Array.isArray(list)) {
-      apiServers = list
-        .filter((s) => s && s.urls)
-        // port 53 is blocked by browsers: such a URL would only time out
-        .map((s) => ({ ...s, urls: [s.urls].flat().filter((u) => !/:53(\?|$)/.test(u)) }))
-        .filter((s) => s.urls.length > 0);
+      apiServers = list.filter((s) => s && s.urls);
       apiFetchedAt = Date.now();
       return apiServers;
     }

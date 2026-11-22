@@ -7,7 +7,7 @@ tmp/
 *.log
 .DS_Store
 .vite/
-# Cloudflare Worker: local secrets and build state, never in the repository
+# local secrets, never in the repository
 .dev.vars*
 .wrangler/
 .env
