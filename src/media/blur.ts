@@ -141,7 +141,10 @@ export class Blurred {
     const t = performance.now();
     if (this.lastTick && t - this.lastTick > 400) {
       this.stalls = [...this.stalls.filter((x) => t - x < 10_000), t];
-      if (this.stalls.length >= 3 && t - this.started > 4000) this.onTooSlow?.();
+      // three short stalls in ten seconds, or a single long one (a mask that holds the page for seconds: a slow
+      // graphics path, where the next mask would only come a minute later)
+      const long = t - this.lastTick > 2000;
+      if ((this.stalls.length >= 3 || long) && t - this.started > 4000) this.onTooSlow?.();
     }
     this.lastTick = t;
     if (this.video.readyState < 2) return;
@@ -180,7 +183,11 @@ export class Blurred {
       // mask is too slow: the lesson must not suffer for a blurred background
       if (this.segs++ > 0) {
         this.segMs = this.segMs ? this.segMs * 0.7 + took * 0.3 : took;
-        if (this.segs > 6 && this.segMs > 250 && !this.stopped) this.onTooSlow?.();
+        // slow on average, or one mask that held the page for a second: either is a frozen lesson
+        if (((this.segs > 6 && this.segMs > 250) || took > 1000) && !this.stopped) this.onTooSlow?.();
+      } else if (took > 5000 && !this.stopped) {
+        // even the warm-up (the model's first run) should not take seconds
+        this.onTooSlow?.();
       }
     }
   }

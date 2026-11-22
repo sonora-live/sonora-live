@@ -1895,22 +1895,40 @@ test('background blur: the picture sent is the blurred one, and it still reaches
         processed: !!m.sentVideo.value && m.sentVideo.value !== m.video.value,
       };
     });
-  // the segmentation loads (served with the app), then the sent picture is the processed one
-  await expect.poll(state, { timeout: 40_000 }).toMatchObject({ failed: false, processed: true });
-  // a while blurring: on a machine too slow for it (a CI runner), it turns itself off rather than freeze the lesson
+  // the segmentation loads (served with the app), then the sent picture is the processed one; on a machine too
+  // slow for it (a CI runner), it turns itself off instead, possibly at once
+  await expect
+    .poll(
+      async () => {
+        const x = await state();
+        return !x.failed && (x.processed || x.slow);
+      },
+      { timeout: 40_000 },
+    )
+    .toBe(true);
   await a.waitForTimeout(8000);
   const s = await state();
   console.log('blur after 8 s', s);
   expect(s.processed || s.slow).toBe(true);
-  // either way the page answers at once, and his side keeps receiving her picture
-  const t0 = Date.now();
-  await a.evaluate(() => 1);
-  const lag = Date.now() - t0;
-  console.log('a round trip to her page while blurring (ms)', lag);
-  expect(lag).toBeLessThan(2000);
+  // either way the lesson never stays frozen: a mask that held the page for seconds turns blur off, and the page
+  // answers at once again; his side keeps receiving her picture
+  const roundTrip = async () => {
+    const t0 = Date.now();
+    await a.evaluate(() => 1);
+    return Date.now() - t0;
+  };
+  await expect.poll(roundTrip, { timeout: 30_000, intervals: [500] }).toBeLessThan(2000);
+  // and stays so
+  for (let i = 0; i < 5; i++) {
+    const lag = await roundTrip();
+    console.log('a round trip to her page while blurring (ms)', lag);
+    expect(lag).toBeLessThan(2000);
+    await a.waitForTimeout(1000);
+  }
+  const s2 = await state();
   await expect.poll(fps, { timeout: 15_000 }).toBeGreaterThan(2);
   // off again: the camera itself
-  if (s.processed) {
+  if (s2.processed) {
     await a.getByTestId('btn-settings').click();
     await a.getByRole('tab', { name: 'Video' }).click();
     await a.getByText('Blur my background').click();
