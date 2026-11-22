@@ -307,6 +307,7 @@ Measured by the browser tests over the network simulator (the numbers each run p
 | MIDI with 3 % loss and jitter | no note lost, none left hanging |
 | A 700 kbit/s link each way | his sound keeps its 190 kbit/s, 0.4 % concealed; his picture adapts (about 300 kbit/s) |
 | Echo on speakers, 200 ms each way | the music-safe canceller takes 16 to 23 dB out |
+| A lesson through a TURN relay | the sound at its full 192 kbit/s, the picture at 250 kbit/s: 1.4 to 2.0 Mbit/s through the relay, both ways (was 2.9) |
 | Sound check | tells speakers from headphones, and measures a Bluetooth headset's extra delay |
 
 What to expect: about **10 ms** (capture) + **10 ms** (one Opus frame) + **half the network round trip** + **20–40 ms**
@@ -411,14 +412,30 @@ the network first, and each build writes its id into `index.html` and `version.j
 
 ### Strict networks: add a TURN relay
 
-Most connections are direct. A few networks (some company or school firewalls, some mobile carriers) block every
-direct path; a TURN relay gets through them. Get one (for example a free [Metered](https://www.metered.ca/stun-turn)
-account, or your own [coturn](https://github.com/coturn/coturn) server) and either:
+Most connections are direct: no relay is used then. A few networks (some company or school firewalls, some mobile
+carriers) block every direct path; a TURN relay gets through them, and then carries the whole lesson. Through a
+relay the sound stays exactly as it is and the picture is kept small (250 kbit/s, the encoder lowering its
+resolution): measured, 0.65 to 0.9 GB an hour through the relay, both ways together (was 1.3 GB with a test
+camera that sends much less than a real one).
 
-- set repository **variables** `TURN_URLS` (comma separated, e.g. `turn:a.relay.example:80,turns:a.relay.example:443`)
-  and `TURN_USERNAME`, and the **secret** `TURN_CREDENTIAL`; or `TURN_API`, a URL that answers with a JSON list of
-  ICE servers (Metered's credentials endpoint does); the Pages workflow passes them to the build;
-- or, as a user, enter one in **Settings → Connection** in the app (kept in your browser only).
+Relays can be given in two ways, and the browser uses **the first one listed that works** (Chrome and Firefox,
+checked by the network tests): the fixed ones (`TURN_URLS`) come before the ones from a credentials endpoint
+(`TURN_API`). So a relay with a large free allowance can carry relayed lessons, and a second one take over when the
+first cannot be reached (its port blocked by that network, or its allowance used up). Two free plans that need no
+payment method on their pages, so that nothing can ever be charged (enter no card when signing up):
+
+- [ExpressTURN](https://www.expressturn.com/) free plan: "TCP and UDP on port 3478, and is limited to 1000 GB of
+  traffic per month" (ports 80 and 443 and TLS are in its paid plan). Copy the server, username and password from
+  its dashboard into the repository variables `TURN_URLS` (e.g.
+  `turn:free.expressturn.com:3478?transport=udp,turn:free.expressturn.com:3478?transport=tcp`) and `TURN_USERNAME`,
+  and the secret `TURN_CREDENTIAL`. They end up in the page, readable by anyone: at worst someone uses up the
+  allowance (refresh them in its dashboard), and with no card on the account nothing can be charged.
+- [Metered](https://www.metered.ca/stun-turn) free plan ("500 MB monthly TURN usage", "No credit card required"),
+  which also offers ports 80 and 443 and TLS, for networks that only let those through: its credentials endpoint
+  as the repository variable `TURN_API` (`https://<app>.metered.live/api/v1/turn/credentials?apiKey=<key>`).
+
+The deploy workflow passes these to the build. As a user, you can also enter a relay in **Settings → Connection** in
+the app (kept in your browser only).
 
 ### Project layout
 

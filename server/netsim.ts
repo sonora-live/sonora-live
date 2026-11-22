@@ -275,6 +275,8 @@ export interface Netsim {
   close(): Promise<void>;
   /** packets relayed so far (to check the browsers really went through it) */
   readonly relayed: number;
+  /** bytes of media relayed so far, both ways (what a TURN service bills) */
+  readonly relayedBytes: number;
   /** Change the link of every client using `username` (the network getting worse or better mid-lesson). */
   retune(username: string, p: Partial<LinkProfile>): void;
 }
@@ -285,6 +287,7 @@ export function startNetsim(port = 3479, host = '127.0.0.1'): Promise<Netsim> {
   const allocs = new Map<string, Allocation>();
   const lanes = new Map<string, { up: Lane; down: Lane }>();
   let relayed = 0;
+  let relayedBytes = 0;
   /** links changed while running, by username */
   const overrides = new Map<string, LinkProfile>();
   /** packets still on their way when the relay closes are dropped */
@@ -326,6 +329,7 @@ export function startNetsim(port = 3479, host = '127.0.0.1'): Promise<Netsim> {
 
   const fromRelay = (a: Allocation, data: Buffer, from: RemoteInfo) => {
     relayed++;
+    relayedBytes += data.length;
     const peer = keyOf(from);
     const ch = a.byPeer.get(peer);
     if (ch !== undefined) {
@@ -357,6 +361,7 @@ export function startNetsim(port = 3479, host = '127.0.0.1'): Promise<Netsim> {
       if (!peer) return;
       const [address, p] = peer.split(':');
       relayed++;
+      relayedBytes += len;
       send(a.relay, b.subarray(4, 4 + len), +p, address);
       return;
     }
@@ -376,6 +381,7 @@ export function startNetsim(port = 3479, host = '127.0.0.1'): Promise<Netsim> {
       const data = attr(m, A.Data);
       if (a && peer && data) {
         relayed++;
+        relayedBytes += data.length;
         send(a.relay, data, peer.port, peer.address);
       }
       return;
@@ -486,6 +492,9 @@ export function startNetsim(port = 3479, host = '127.0.0.1'): Promise<Netsim> {
         },
         get relayed() {
           return relayed;
+        },
+        get relayedBytes() {
+          return relayedBytes;
         },
         close: () =>
           new Promise<void>((done) => {

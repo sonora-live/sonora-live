@@ -71,6 +71,14 @@ const GIVE_UP_MS = 45_000;
 /** a connection that never opens is given up after this */
 const CONNECT_TIMEOUT_MS = 25_000;
 
+/**
+ * Through a TURN relay (only when the two browsers cannot reach each other directly), every byte is the relay's,
+ * and a relay's free allowance is small: the sound stays exactly as it is, the picture is kept small (the encoder
+ * lowers its resolution to fit, keeping its frame rate). Back to full quality as soon as the path is direct.
+ */
+export const RELAY_VIDEO_BPS = 250_000;
+export const RELAY_EXTRA_BPS = 400_000;
+
 /** Testing: relayed paths only, as on networks that block direct ones (?nodirect, or window.sonoraNoDirect). */
 function noDirect(): boolean {
   if (typeof location === 'undefined') return false;
@@ -128,6 +136,8 @@ export class PeerLink {
   readonly guard = new LatencyGuard();
   /** measurement counters at the last poll: the guard only takes new measurements */
   private pairResponses = -1;
+  /** the path in use goes through a TURN relay (the picture is kept small then) */
+  private viaRelay = false;
   private audioRttCount = -1;
 
   constructor(opts: {
@@ -385,7 +395,7 @@ export class PeerLink {
     await set(
       'video',
       (e) => {
-        e.maxBitrate = Math.min(this.params.videoBitrate, this.guard.cap);
+        e.maxBitrate = Math.min(this.params.videoBitrate, this.guard.cap, this.viaRelay ? RELAY_VIDEO_BPS : Infinity);
         e.maxFramerate = 30;
         e.priority = 'medium';
         e.networkPriority = 'medium';
@@ -395,7 +405,7 @@ export class PeerLink {
     await set(
       'extra',
       (e) => {
-        e.maxBitrate = this.params.extraBitrate;
+        e.maxBitrate = Math.min(this.params.extraBitrate, this.viaRelay ? RELAY_EXTRA_BPS : Infinity);
         e.priority = 'low';
       },
       'maintain-resolution',
@@ -665,6 +675,11 @@ export class PeerLink {
           limit: String(v.qualityLimitationReason ?? 'none'),
         };
       }
+    }
+    // through a relay: the picture kept small (see RELAY_VIDEO_BPS); direct again: full quality
+    if (pair && out.relayed !== this.viaRelay) {
+      this.viaRelay = out.relayed;
+      void this.applyParams();
     }
     // the guard takes each new measurement once (a value read again at the next poll is not a new sample)
     for (const rtt of fresh) this.guardLatency(rtt);

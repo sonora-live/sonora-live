@@ -542,3 +542,83 @@ for (const kbps of [1500, 700]) {
     await b.context().close();
   });
 }
+
+test('through a TURN relay: the sound whole, the picture small (a relay’s allowance is small)', async () => {
+  // only relayed paths (?nodirect, as on a network that blocks direct ones)
+  const a = await simPerson(browser!, 'Clara', { turn: sim.url, net: { up: 20, down: 20 } });
+  const b = await simPerson(browser!, 'Leo', { turn: sim.url, net: { up: 20, down: 20 }, hash: await codeOf(a) });
+  await linked(a, 1);
+  await linked(b, 1);
+  type St = { relayed: boolean; audioOutKbps: number; videoOut: { kbps: number } | null };
+  const st = () =>
+    a.evaluate(
+      () => (window as unknown as { sonora: { peers: { value: { stats: St }[] } } }).sonora.peers.value[0].stats,
+    );
+  await expect.poll(async () => (await st()).relayed, { timeout: 15_000 }).toBe(true);
+  // the picture settles under the relay's cap; the sound keeps its full rate
+  await expect.poll(async () => (await st()).videoOut?.kbps ?? 999, { timeout: 30_000 }).toBeLessThan(300);
+  await a.waitForTimeout(5000);
+  const s = await st();
+  expect(s.audioOutKbps).toBeGreaterThan(170);
+  // what the relay carries, both ways together
+  const before = sim.relayedBytes;
+  await a.waitForTimeout(20_000);
+  const mbps = ((sim.relayedBytes - before) * 8) / 20 / 1e6;
+  console.log(`through the relay: ${mbps.toFixed(2)} Mbit/s, ${((mbps / 8) * 3.6).toFixed(2)} GB an hour`, s);
+  expect(mbps).toBeLessThan(2.4);
+  await a.context().close();
+  await b.context().close();
+});
+
+for (const firstWorks of [true, false]) {
+  test(`two relays offered: the first listed carries everything${firstWorks ? '' : ', the second when the first cannot'}`, async () => {
+    // the order the app lists them in decides which relay (and which allowance) a lesson uses (src/net/ice.ts);
+    // two relays of its own (the shared one's links were retuned by other tests)
+    const first = await startNetsim(0);
+    const second = await startNetsim(0);
+    const page = await (await browser!.newContext()).newPage();
+    await page.goto('/?relay=local');
+    const b0 = [first.relayedBytes, second.relayedBytes];
+    await page.evaluate(
+      async ({ a, b, user }) => {
+        const iceServers = [
+          { urls: a, username: user, credential: 'sim' },
+          { urls: b, username: user, credential: 'sim' },
+        ];
+        const p1 = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'relay' });
+        const p2 = new RTCPeerConnection({ iceServers, iceTransportPolicy: 'relay' });
+        p1.onicecandidate = (e) => void (e.candidate && p2.addIceCandidate(e.candidate));
+        p2.onicecandidate = (e) => void (e.candidate && p1.addIceCandidate(e.candidate));
+        const dc = p1.createDataChannel('x');
+        await p1.setLocalDescription();
+        await p2.setRemoteDescription(p1.localDescription!);
+        await p2.setLocalDescription();
+        await p1.setRemoteDescription(p2.localDescription!);
+        await new Promise<void>((r) => (dc.onopen = () => r()));
+        for (let k = 0; k < 100; k++) {
+          dc.send('x'.repeat(16000));
+          await new Promise((r) => setTimeout(r, 10));
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+        p1.close();
+        p2.close();
+      },
+      {
+        // nothing listens there: a relay that cannot be used (its allowance spent, its port blocked)
+        a: firstWorks ? first.url : 'turn:127.0.0.1:3999?transport=udp',
+        b: second.url,
+        user: usernameOf({}),
+      },
+    );
+    const used = [first.relayedBytes - b0[0], second.relayedBytes - b0[1]];
+    await first.close();
+    await second.close();
+    await page.context().close();
+    if (firstWorks) {
+      expect(used[0]).toBeGreaterThan(1_000_000);
+      expect(used[1]).toBe(0);
+    } else {
+      expect(used[1]).toBeGreaterThan(1_000_000);
+    }
+  });
+}
