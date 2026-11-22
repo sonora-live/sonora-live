@@ -1,0 +1,12 @@
+# The TURN credentials Worker (cloudflare/turn.ts). Deploy from this folder: `npx wrangler deploy`.
+# Secrets are set with `npx wrangler secret put TURN_KEY_ID` and `npx wrangler secret put TURN_KEY_API_TOKEN`:
+# they live in Cloudflare only, never in this file or the repository.
+name = "sonora-turn"
+main = "turn.ts"
+compatibility_date = "2025-09-01"
+
+[vars]
+# the sites allowed to ask for credentials (comma separated; "http://localhost:*" adds local development)
+ALLOWED_ORIGINS = "https://sonora-live.github.io"
+# how long each credential lasts (seconds): longer than a lesson
+TTL_SECONDS = "21600"

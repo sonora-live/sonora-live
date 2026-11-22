@@ -17,5 +17,14 @@
     "resolveJsonModule": true,
     "types": ["vite/client", "vite-plugin-pwa/vanillajs", "node"]
   },
-  "include": ["src", "server", "tests", "tools", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": [
+    "src",
+    "server",
+    "tests",
+    "cloudflare",
+    "tools",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
 }
