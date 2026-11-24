@@ -1,6 +1,6 @@
 // Minimal MQTT 3.1.1 client over WebSocket: QoS 0 publish / subscribe and keep-alive. That is all the room
 // rendezvous needs from the public brokers (src/net/relay.ts); media, chat and MIDI never go through them.
-// (Same client as Boom Buds, github.com/mayerwin/Boom-Buds.)
+// (Same client as Boom Buds, github.com/boom-buds/boom-buds.)
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();

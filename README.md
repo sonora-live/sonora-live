@@ -264,7 +264,7 @@ sequenceDiagram
 
 The browsers meet on free public MQTT brokers ([EMQX](https://www.emqx.com/en/mqtt/public-mqtt5-broker),
 [HiveMQ](https://www.hivemq.com/mqtt/public-mqtt-broker/), [Eclipse Mosquitto](https://test.mosquitto.org)), several at
-once so one being down does not matter, the same approach as [Boom Buds](https://github.com/mayerwin/Boom-Buds). The
+once so one being down does not matter. The
 topic is a hash of the room code, and every message is encrypted with AES-GCM under a key derived from the code
 (PBKDF2): the brokers see random topic names and opaque bytes, and only the short handshake goes through them.
 
@@ -487,7 +487,7 @@ expected to follow the [code of conduct](CODE_OF_CONDUCT.md).
 - Recordings' length in WebM: [fix-webm-duration](https://github.com/yusitnikov/fix-webm-duration) by Yuri Sitnikov
   (MIT).
 - Icons: [Lucide](https://lucide.dev) (ISC).
-- Rendezvous design: [Boom Buds](https://github.com/mayerwin/Boom-Buds).
+- Rendezvous design: [Boom Buds](https://github.com/boom-buds/boom-buds).
 - Bluetooth MIDI on Windows: [Perfect Bluetooth MIDI for Windows](https://github.com/mayerwin/Perfect-Bluetooth-MIDI-For-Windows).
 
 Sonora Live is released under the [MIT License](LICENSE).
