@@ -2,13 +2,8 @@
 
 declare const __APP_VERSION__: string;
 declare const __APP_COMMIT__: string;
-
-interface ImportMetaEnv {
-  readonly VITE_TURN_URLS?: string;
-  readonly VITE_TURN_USERNAME?: string;
-  readonly VITE_TURN_CREDENTIAL?: string;
-  readonly VITE_TURN_API?: string;
-}
+/** the built-in relay settings, scrambled (src/net/scramble.ts) */
+declare const __TURN__: string;
 
 /** Content hashes of the files of public/ the app loads (tools/versioning.ts); empty in development. */
 declare module 'virtual:sonora-assets' {

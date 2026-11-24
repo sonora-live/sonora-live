@@ -428,8 +428,10 @@ payment method on their pages, so that nothing can ever be charged (enter no car
   traffic per month" (ports 80 and 443 and TLS are in its paid plan). Copy the server, username and password from
   its dashboard into the repository variables `TURN_URLS` (e.g.
   `turn:free.expressturn.com:3478?transport=udp,turn:free.expressturn.com:3478?transport=tcp`) and `TURN_USERNAME`,
-  and the secret `TURN_CREDENTIAL`. They end up in the page, readable by anyone: at worst someone uses up the
-  allowance (refresh them in its dashboard), and with no card on the account nothing can be charged.
+  and the secret `TURN_CREDENTIAL`. They reach the page scrambled, never as plain text
+  ([`src/net/scramble.ts`](src/net/scramble.ts)), but a browser must hand them to WebRTC, so someone determined can
+  still read them: at worst they use up the allowance (refresh them in its dashboard), and with no card on the
+  account nothing can be charged.
 - [Metered](https://www.metered.ca/stun-turn) free plan ("500 MB monthly TURN usage", "No credit card required"),
   which also offers ports 80 and 443 and TLS, for networks that only let those through: its credentials endpoint
   as the repository variable `TURN_API` (`https://<app>.metered.live/api/v1/turn/credentials?apiKey=<key>`).

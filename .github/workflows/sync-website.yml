@@ -46,10 +46,12 @@ jobs:
       - name: Build web application
         run: npm run build
         env:
-          VITE_TURN_URLS: ${{ vars.TURN_URLS }}
-          VITE_TURN_USERNAME: ${{ vars.TURN_USERNAME }}
-          VITE_TURN_API: ${{ vars.TURN_API }}
-          VITE_TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
+          # the relay settings: scrambled into the page by vite.config.ts (not VITE_ variables: Vite would copy
+          # those into the page as plain text)
+          TURN_URLS: ${{ vars.TURN_URLS }}
+          TURN_USERNAME: ${{ vars.TURN_USERNAME }}
+          TURN_API: ${{ vars.TURN_API }}
+          TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
           VITE_TIDESIGHT_SITE_ID: ${{ vars.TIDESIGHT_SITE_ID }}
           VITE_TIDESIGHT_URL: ${{ vars.TIDESIGHT_URL }}
 

@@ -4,6 +4,24 @@ import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { attachRelay } from './server/relay.ts';
 import { versioning } from './tools/versioning.ts';
+import { randomBytes } from 'node:crypto';
+import { scramble } from './src/net/scramble.ts';
+
+/**
+ * The built-in relay settings (TURN_URLS, TURN_USERNAME, TURN_CREDENTIAL, TURN_API; the older VITE_TURN_* names
+ * too), scrambled for the page. They are taken out of the environment first: Vite copies every VITE_ variable into
+ * the page as plain text wherever the code reads its environment as a whole.
+ */
+function builtInTurn(): string {
+  const take = (name: string): string => {
+    const v = process.env[`TURN_${name}`] || process.env[`VITE_TURN_${name}`] || '';
+    delete process.env[`VITE_TURN_${name}`];
+    return v.trim();
+  };
+  const t = { urls: take('URLS'), username: take('USERNAME'), credential: take('CREDENTIAL'), api: take('API') };
+  return scramble(t, randomBytes(24));
+}
+const TURN = builtInTurn();
 
 /** The local publish/subscribe relay (server/relay.ts) on the dev and preview servers, for `?relay=local`. */
 function localRelay(): Plugin {
@@ -55,6 +73,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '1.0.0'),
     __APP_COMMIT__: JSON.stringify(gitVersion()),
+    __TURN__: JSON.stringify(TURN),
   },
   oxc: { jsx: { runtime: 'automatic', importSource: 'preact' } },
   plugins: [

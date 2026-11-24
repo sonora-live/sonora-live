@@ -3,9 +3,20 @@
 // carrier-grade NATs) block every direct path; a TURN relay gets through those. It can be configured at build
 // time (repository variables, see README) or by the user in Settings → Connection.
 //
-//   VITE_TURN_URLS        comma separated, e.g. "turn:global.relay.metered.ca:80,turns:global.relay.metered.ca:443"
-//   VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL
-//   VITE_TURN_API         URL answering with a JSON array of RTCIceServer (e.g. Metered's credentials API)
+//   TURN_URLS        comma separated, e.g. "turn:relay.example.com:3478?transport=udp"
+//   TURN_USERNAME / TURN_CREDENTIAL
+//   TURN_API         URL answering with a JSON array of RTCIceServer (e.g. Metered's credentials API)
+//
+// They reach the page scrambled (src/net/scramble.ts, written by vite.config.ts), not as plain text.
+
+import { unscramble, type BuiltInTurn } from './scramble.ts';
+
+/** The relay settings built into this page (none in development unless set when starting it). */
+let built: BuiltInTurn | null = null;
+function builtInTurn(): BuiltInTurn {
+  built ??= unscramble(typeof __TURN__ === 'string' ? __TURN__ : '');
+  return built;
+}
 
 export interface TurnConfig {
   urls: string;
@@ -55,19 +66,18 @@ export function usable(urls: string[], username?: string, credential?: string): 
   return ok.some((u) => /^turns?:/i.test(u)) ? { urls: ok, username, credential } : { urls: ok };
 }
 
-export async function iceServers(user?: TurnConfig | null): Promise<RTCIceServer[]> {
+export async function iceServers(user?: TurnConfig | null, b: BuiltInTurn = builtInTurn()): Promise<RTCIceServer[]> {
   const list: RTCIceServer[] = [STUN];
-  const env = import.meta.env ?? {};
   const add = (s: RTCIceServer | null) => s && list.push(s);
-  add(usable(splitUrls(String(env.VITE_TURN_URLS ?? '')), env.VITE_TURN_USERNAME, env.VITE_TURN_CREDENTIAL));
-  if (env.VITE_TURN_API) list.push(...(await fromApi(String(env.VITE_TURN_API))));
+  // the fixed relay first: browsers use the first relay listed that works
+  add(usable(splitUrls(b.urls), b.username || undefined, b.credential || undefined));
+  if (b.api) list.push(...(await fromApi(b.api)));
   if (user && user.urls.trim())
     add(usable(splitUrls(user.urls), user.username || undefined, user.credential || undefined));
   return list;
 }
 
-/** Is any TURN relay configured? (the connection panel says so) */
-export function hasBuiltInTurn(): boolean {
-  const env = import.meta.env ?? {};
-  return !!(String(env.VITE_TURN_URLS ?? '').trim() || env.VITE_TURN_API);
+/** Is any TURN relay built in? (the connection panel says so) */
+export function hasBuiltInTurn(b: BuiltInTurn = builtInTurn()): boolean {
+  return !!(b.urls.trim() || b.api);
 }
